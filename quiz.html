@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <title>Quiz Arena - Fix Login & Duplikat Username</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui, 'Segoe UI', sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { background: linear-gradient(145deg, #1e2b3c, #0f1a24); min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 16px; }
+        .wrapper { max-width: 950px; width: 100%; }
+        .auth-screen, .quiz-card, .result-area, .edit-panel {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(15px);
+            border-radius: 48px;
+            padding: 25px 20px;
+            color: white;
+            box-shadow: 0 25px 45px rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .auth-header { cursor: pointer; text-align: center; margin-bottom: 10px; }
+        .auth-header h1 { font-size: 2rem; background: linear-gradient(135deg, #f9c74f, #f9844a); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .auth-form input { width: 90%; padding: 14px; margin: 10px 0; border-radius: 60px; border: none; text-align: center; background: #fef9e6; }
+        .auth-form button { background: #f9844a; padding: 12px 20px; margin: 5px; border: none; border-radius: 60px; font-weight: bold; cursor: pointer; min-width: 120px; }
+        .auth-form .toggle-btn { background: #2a9d8f; }
+        .error-msg { color: #ffb347; margin-top: 5px; }
+        .header { background: rgba(0,0,0,0.4); padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; font-weight: bold; }
+        .timer-container { background: rgba(0,0,0,0.7); border-radius: 60px; padding: 5px 15px; display: flex; align-items: center; gap: 8px; }
+        .timer-clock { font-size: 1.5rem; font-weight: 800; background: #0a0a0a; padding: 4px 12px; border-radius: 60px; min-width: 70px; text-align: center; }
+        .timer-clock.warning { color: #ff3333; text-shadow: 0 0 5px red; animation: pulse 0.4s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+        .edit-quiz-btn, .logout-btn { background: #bc6c25; padding: 5px 12px; border-radius: 60px; cursor: pointer; border: none; color: white; }
+        .edit-quiz-btn { background: #f4a261; color: #1e2b3c; }
+        .quiz-title { text-align: center; margin-bottom: 16px; cursor: pointer; }
+        .quiz-title span { background: rgba(0,0,0,0.3); padding: 8px 20px; border-radius: 60px; background: linear-gradient(145deg, #2c5a6e, #1e3a48); color: #f9e0a0; font-size: 1.4rem; font-weight: bold; }
+        .quiz-card { margin-bottom: 20px; }
+        .question-text { font-size: 1.4rem; padding: 24px 20px 16px; font-weight: bold; }
+        .options { padding: 0 20px; display: flex; flex-direction: column; gap: 12px; }
+        .option { background: rgba(20,35,45,0.8); border: 1px solid rgba(255,255,255,0.2); border-radius: 60px; padding: 14px 18px; cursor: pointer; transition: 0.2s; }
+        .option.selected { background: #2b7a62; border-color: #d4ffb0; }
+        .nav { display: flex; gap: 12px; padding: 24px 20px 28px; }
+        button { flex: 1; padding: 14px; border-radius: 60px; border: none; font-weight: bold; cursor: pointer; background: #2c3f4a; color: white; }
+        .next { background: #2c7a5e; }
+        .final-score { font-size: 2rem; background: #0e2a2a; display: inline-block; padding: 8px 24px; border-radius: 60px; margin: 20px 0; }
+        .correction-item { background: rgba(0,0,0,0.4); border-radius: 24px; padding: 16px; margin: 12px 0; text-align: left; }
+        .hidden { display: none; }
+        .edit-panel { margin-top: 20px; }
+        .soal-item { background: #1e2f38; border-radius: 24px; padding: 16px; margin-bottom: 20px; }
+        .soal-item input { width: 100%; padding: 12px; margin: 6px 0; border-radius: 40px; border: none; background: #fef9e6; }
+        .options-edit { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0; }
+        .correct-radio { margin: 10px 0; display: flex; gap: 15px; flex-wrap: wrap; }
+        .btn-save { background: #2a9d8f; padding: 12px 20px; border-radius: 40px; border: none; font-weight: bold; cursor: pointer; margin: 10px 10px 0 0; }
+        .btn-del { background: #bc6c25; padding: 10px 16px; border-radius: 40px; border: none; color: white; cursor: pointer; margin-top: 12px; }
+        .admin-only { display: none; }
+        .timer-setting { margin: 15px 0; display: flex; gap: 15px; flex-wrap: wrap; background: #1e2f38; padding: 12px; border-radius: 40px; }
+        .leaderboard-container { background: rgba(0,0,0,0.4); border-radius: 32px; padding: 20px 12px; margin-top: 10px; }
+        .podium { display: flex; justify-content: center; align-items: flex-end; gap: 15px; margin-bottom: 30px; flex-wrap: wrap; }
+        .podium-item { text-align: center; background: rgba(0,0,0,0.5); border-radius: 20px 20px 15px 15px; padding: 12px 15px; width: 110px; transition: 0.2s; }
+        .podium-item.rank1 { background: linear-gradient(145deg, rgba(255,215,0,0.3), rgba(255,160,0,0.3)); border-top: 5px solid #FFD700; transform: translateY(-8px); }
+        .podium-item.rank2 { background: linear-gradient(145deg, rgba(192,192,192,0.3), rgba(160,160,160,0.3)); border-top: 4px solid #C0C0C0; }
+        .podium-item.rank3 { background: linear-gradient(145deg, rgba(205,127,50,0.3), rgba(180,100,30,0.3)); border-top: 4px solid #CD7F32; }
+        .medal { font-size: 2.5rem; display: block; }
+        .podium-name { font-weight: bold; font-size: 1rem; margin: 5px 0; color: #FFE6B0; }
+        .podium-score { font-size: 1.1rem; font-weight: bold; background: #00000066; display: inline-block; padding: 2px 12px; border-radius: 30px; }
+        .leaderboard-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .leaderboard-table th { background: linear-gradient(145deg, #f4a261, #e76f51); color: #1e2b3c; padding: 10px; }
+        .leaderboard-table td { background: rgba(0,0,0,0.5); padding: 8px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.2); color: #fef7e6; }
+        .reset-leaderboard { background: #bc6c25; margin-top: 15px; padding: 8px 20px; border-radius: 60px; cursor: pointer; font-weight: bold; }
+        .hide-reset { display: none; }
+        .player-name-badge { background: #2a9d8f; padding: 5px 12px; border-radius: 60px; font-size: 0.75rem; }
+        @media (max-width: 550px) {
+            .podium-item { width: 80px; padding: 8px; }
+            .timer-clock { font-size: 1.2rem; min-width: 50px; }
+            .option, .nav button { padding: 12px; }
+            .question-text { font-size: 1.2rem; }
+        }
+    </style>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+</head>
+<body>
+<div class="wrapper">
+    <div id="authScreen" class="auth-screen">
+        <div class="auth-header" id="adminTriggerAuth"><h1>🏆 QUIZ ARENA 🏆</h1></div>
+        <div id="previewLeaderboard"></div>
+        <div class="auth-form">
+            <h3 id="authModeText">🔐 Login ke Akun</h3>
+            <input type="text" id="authUsername" placeholder="Username">
+            <input type="password" id="authPassword" placeholder="Password">
+            <div>
+                <button id="authSubmitBtn">Login</button>
+                <button id="authToggleBtn" class="toggle-btn">Buat Akun Baru</button>
+            </div>
+            <div class="error-msg" id="authError"></div>
+        </div>
+    </div>
+
+    <div id="quizContent" style="display: none;">
+        <div class="quiz-title" id="secretTrigger"><span>⏱️ QUIZ TIMER ⏱️</span></div>
+        <div class="quiz-card">
+            <div class="header">
+                <span>📋 Soal: <span id="currentIdx">1</span>/<span id="totalQ">0</span></span>
+                <div class="timer-container"><span>⏳</span><span id="timerDisplay" class="timer-clock">0</span><span>dtk</span></div>
+                <span id="playerNameDisplay" class="player-name-badge"></span>
+                <div style="display: flex; gap: 8px;">
+                    <button id="editQuizBtn" class="edit-quiz-btn" style="display: none;">✏️ Edit</button>
+                    <button id="logoutBtn" class="logout-btn">🚪 Keluar</button>
+                </div>
+            </div>
+            <div id="quizMain">
+                <div class="question-text" id="questionText"></div>
+                <div class="options" id="optionsContainer"></div>
+                <div class="nav">
+                    <button id="prevBtn" disabled>◀ Sebelumnya</button>
+                    <button id="nextBtn" class="next" disabled>Selanjutnya ▶</button>
+                </div>
+            </div>
+            <div id="resultArea" class="result-area hidden">
+                <h2>✨ Hasil Quiz ✨</h2>
+                <div class="final-score" id="finalScore">0/100</div>
+                <p id="resultMessage"></p>
+                <div id="correctionList"></div>
+                <div id="postLeaderboard"></div>
+                <button id="resetLeaderboardBtn" class="reset-leaderboard hide-reset">↺ Reset Papan Skor</button>
+            </div>
+        </div>
+        <div id="editPanel" class="edit-panel admin-only">
+            <h3>📝 Edit Soal & Timer</h3>
+            <div class="timer-setting"><label>⏱️ Durasi per soal (detik):</label><input type="number" id="timerDurationInput" min="3" max="300" value="15"></div>
+            <div id="questionsEditor"></div>
+            <button class="btn-save" id="addQuestionBtn">+ Tambah Soal</button>
+            <button class="btn-save" id="saveQuizBtn">💾 Simpan Perubahan</button>
+            <button class="btn-save" id="exitAdminBtn" style="background:#bc6c25;">🚪 Keluar Mode Admin</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Konfigurasi Firebase Anda
+    const firebaseConfig = {
+        apiKey: "AIzaSyCIgZ4M2UprJ7ala7i6MEYM4fAycgX1k0U",
+        authDomain: "quizz-4b988.firebaseapp.com",
+        databaseURL: "https://quizz-4b988-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "quizz-4b988",
+        storageBucket: "quizz-4b988.firebasestorage.app",
+        messagingSenderId: "1077094016425",
+        appId: "1:1077094016425:web:2078a96f82fc9224f550b8"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // Data default
+    const DEFAULT_QUESTIONS = [
+        { text: "Apa ibu kota Indonesia?", options: ["Surabaya", "Jakarta", "Bandung", "Medan"], correct: 1 },
+        { text: "Presiden pertama RI?", options: ["Soeharto", "Habibie", "Soekarno", "Megawati"], correct: 2 },
+        { text: "Planet terdekat Matahari?", options: ["Venus", "Bumi", "Mars", "Merkurius"], correct: 3 },
+        { text: "12 × 7 = ?", options: ["74", "84", "94", "64"], correct: 1 },
+        { text: "Sungai terpanjang dunia?", options: ["Amazon", "Nil", "Mississippi", "Yangtze"], correct: 1 }
+    ];
+
+    let currentUser = null;
+    let isAdmin = false;
+    let timerDurationSec = 15;
+    let QUESTIONS = [...DEFAULT_QUESTIONS];
+    let leaderboard = [];
+    let userResult = null;      // hasil yang sudah disimpan (jika ada)
+    let quizFinishedFlag = false;   // untuk state quiz
+    let current = 0, answers = [];
+    let timerRAF = null, timeLeft = 0, lastTimestamp = 0;
+
+    function escapeHtml(s) { return s.replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m])); }
+
+    // ================== Firebase: Load & Save Global ==================
+    async function loadGlobalData() {
+        const snapshot = await db.ref('/').once('value');
+        const data = snapshot.val() || {};
+        if(data.questions) QUESTIONS = data.questions;
+        if(data.timerDuration) timerDurationSec = data.timerDuration;
+        if(data.leaderboard) leaderboard = data.leaderboard;
+        leaderboard.sort((a,b)=> (b.skorPersen||0) - (a.skorPersen||0));
+    }
+    async function saveGlobalData() {
+        await db.ref('/').set({ questions: QUESTIONS, timerDuration: timerDurationSec, leaderboard: leaderboard });
+    }
+
+    // ================== Akun (username unik, password boleh sama) ==================
+    async function loadUsers() { return (await db.ref('/users').once('value')).val() || {}; }
+    async function saveUsers(users) { await db.ref('/users').set(users); }
+
+    async function register(username, password) {
+        username = username.trim();
+        if(!username || !password) return "Isi semua!";
+        const users = await loadUsers();
+        if(users[username]) return "Username sudah ada! (pilih nama lain)";
+        users[username] = { password };
+        await saveUsers(users);
+        return null;
+    }
+
+    async function login(username, password) {
+        username = username.trim();
+        const users = await loadUsers();
+        const user = users[username];
+        if(!user) return "Username tidak ditemukan!";
+        if(user.password !== password) return "Password salah!";
+        currentUser = { username };
+        // Ambil hasil sebelumnya jika ada
+        const res = await db.ref(`/userResults/${username}`).once('value');
+        userResult = res.val();
+        return null;
+    }
+
+    async function saveUserResult(result) {
+        if(!currentUser) return;
+        await db.ref(`/userResults/${currentUser.username}`).set(result);
+        userResult = result;
+    }
+
+    // ================== Leaderboard ==================
+    function addScore(nama, persen, total, benar) {
+        leaderboard.push({ nama: nama.substring(0,20), skor: benar, total, skorPersen: persen, tanggal: new Date().toLocaleString() });
+        leaderboard.sort((a,b)=> (b.skorPersen||0) - (a.skorPersen||0));
+        if(leaderboard.length>30) leaderboard = leaderboard.slice(0,30);
+        saveGlobalData();
+    }
+    function renderLeaderboard(containerId) {
+        const c = document.getElementById(containerId);
+        if(!c) return;
+        if(leaderboard.length===0) { c.innerHTML = "<p style='text-align:center; padding:12px;'>✨ Belum ada skor. ✨</p>"; return; }
+        const top3 = leaderboard.slice(0,3);
+        const others = leaderboard.slice(3);
+        let html = `<div class="leaderboard-container"><div class="podium">`;
+        const order = [1,0,2];
+        for(let pos of order) {
+            if(top3[pos]) {
+                const e = top3[pos];
+                const r = pos+1;
+                const medal = r===1 ? "🥇" : (r===2 ? "🥈" : "🥉");
+                const cls = r===1 ? "rank1" : (r===2 ? "rank2" : "rank3");
+                html += `<div class="podium-item ${cls}"><div class="medal">${medal}</div><div class="podium-name">${escapeHtml(e.nama)}</div><div class="podium-score">${e.skorPersen}/100</div><div class="podium-rank-text">Peringkat ${r}</div></div>`;
+            }
+        }
+        html += `</div>`;
+        if(others.length) {
+            html += `<table class="leaderboard-table"><thead><tr><th>🏅 Peringkat</th><th>👤 Nama</th><th>⭐ Skor</th><th>🕒 Waktu</th></tr></thead><tbody>`;
+            others.forEach((e,i) => { let r = i+4; html += `<tr><td class="rank-cell">${r}</td><td>${escapeHtml(e.nama)}</span></td><td class="score-highlight">${e.skorPersen}/100</span><td>${e.tanggal}</span></tr>`; });
+            html += `</tbody></table>`;
+        }
+        html += `</div>`;
+        c.innerHTML = html;
+    }
+    function resetLeaderboard() {
+        if(!isAdmin) { alert("Hanya admin!"); return; }
+        if(confirm("Reset semua papan skor?")) { leaderboard=[]; saveGlobalData(); renderLeaderboard("previewLeaderboard"); renderLeaderboard("postLeaderboard"); }
+    }
+
+    // ================== Admin Mode (klik 5x judul di halaman login) ==================
+    let clickCount=0, clickTimer=null;
+    const adminTrigger = document.getElementById('adminTriggerAuth');
+    adminTrigger.addEventListener('click', () => {
+        clickCount++;
+        if(clickTimer) clearTimeout(clickTimer);
+        clickTimer = setTimeout(()=> clickCount=0, 2000);
+        if(clickCount>=5) {
+            isAdmin = true;
+            sessionStorage.setItem("quizAdminMode","true");
+            alert("Mode admin aktif! Login untuk edit soal.");
+            clickCount=0;
+            if(document.getElementById('quizContent').style.display !== 'none') showAdminUI();
+        }
+    });
+    function checkAdmin() { if(sessionStorage.getItem("quizAdminMode")==="true") isAdmin=true; }
+    function showAdminUI() {
+        const editBtn = document.getElementById('editQuizBtn');
+        if(editBtn) editBtn.style.display = isAdmin ? "block" : "none";
+        const resetBtn = document.getElementById('resetLeaderboardBtn');
+        if(resetBtn) resetBtn.classList.toggle('hide-reset', !isAdmin);
+        if(isAdmin && document.getElementById('timerDurationInput')) document.getElementById('timerDurationInput').value = timerDurationSec;
+    }
+    function exitAdmin() { sessionStorage.removeItem("quizAdminMode"); location.reload(); }
+    let panelOpen=false;
+    function toggleEditPanel() {
+        if(!isAdmin) return;
+        const p = document.getElementById('editPanel');
+        if(panelOpen) { p.classList.add('admin-only'); panelOpen=false; }
+        else { p.classList.remove('admin-only'); renderEditor(); panelOpen=true; }
+    }
+
+    // ================== Quiz Logic (Timer RAF) ==================
+    const timerDisplay = document.getElementById('timerDisplay');
+    function stopTimer() { if(timerRAF) cancelAnimationFrame(timerRAF); timerRAF=null; }
+    function updateTimerUI() { if(timerDisplay) { timerDisplay.innerText = Math.ceil(timeLeft); if(timeLeft<=3) timerDisplay.classList.add('warning'); else timerDisplay.classList.remove('warning'); } }
+    function startTimer() {
+        if(quizFinishedFlag) return;
+        stopTimer();
+        if(timeLeft<=0) return;
+        lastTimestamp = performance.now();
+        function step(now) {
+            if(quizFinishedFlag) return;
+            let delta = Math.min(0.1, (now-lastTimestamp)/1000);
+            lastTimestamp = now;
+            timeLeft -= delta;
+            updateTimerUI();
+            if(timeLeft <= 0) {
+                stopTimer();
+                if(!quizFinishedFlag && !document.getElementById('quizMain').classList.contains('hidden')) {
+                    if(answers[current]===null) answers[current]=null;
+                    if(current < QUESTIONS.length-1) { current++; render(); initTimer(); }
+                    else finish();
+                }
+            } else {
+                timerRAF = requestAnimationFrame(step);
+            }
+        }
+        timerRAF = requestAnimationFrame(step);
+    }
+    function initTimer() { if(quizFinishedFlag) return; stopTimer(); timeLeft = timerDurationSec; updateTimerUI(); startTimer(); }
+
+    let totalSoal = 0;
+    function render() {
+        if(quizFinishedFlag) return;
+        document.getElementById('currentIdx').innerText = current+1;
+        const q = QUESTIONS[current];
+        document.getElementById('questionText').innerText = q.text;
+        const container = document.getElementById('optionsContainer');
+        container.innerHTML = '';
+        q.options.forEach((opt, idx) => {
+            const btn = document.createElement('div');
+            btn.className = 'option';
+            if(answers[current] === idx) btn.classList.add('selected');
+            btn.innerHTML = `${String.fromCharCode(65+idx)}. ${opt}`;
+            btn.onclick = () => {
+                if(quizFinishedFlag) return;
+                if(answers[current] === idx) return;
+                answers[current] = idx;
+                render();
+                document.getElementById('nextBtn').disabled = false;
+            };
+            container.appendChild(btn);
+        });
+        document.getElementById('prevBtn').disabled = (current === 0);
+        document.getElementById('nextBtn').disabled = (answers[current] === null);
+        if(!quizFinishedFlag && timerRAF===null && timeLeft>0 && !document.getElementById('quizMain').classList.contains('hidden')) startTimer();
+    }
+    function next() {
+        if(quizFinishedFlag) return;
+        if(current < totalSoal-1 && answers[current] !== null) {
+            stopTimer();
+            current++;
+            render();
+            initTimer();
+        } else if(current === totalSoal-1 && answers[current] !== null) {
+            stopTimer();
+            finish();
+        }
+    }
+    function prev() {
+        if(quizFinishedFlag) return;
+        if(current > 0) {
+            stopTimer();
+            current--;
+            render();
+            initTimer();
+        }
+    }
+    async function finish() {
+        if(quizFinishedFlag) return;
+        quizFinishedFlag = true;
+        stopTimer();
+        let benar = 0;
+        for(let i=0;i<totalSoal;i++) if(answers[i] === QUESTIONS[i].correct) benar++;
+        let persen = Math.round((benar/totalSoal)*100);
+        document.getElementById('finalScore').innerHTML = `${persen}/100`;
+        document.getElementById('resultMessage').innerHTML = persen===100 ? "🎉 Sempurna! 🎉" : "✅ Koreksi jawaban di bawah.";
+        let corrHtml = '<h3>📝 Koreksi Jawaban</h3>';
+        for(let i=0;i<totalSoal;i++) {
+            let q = QUESTIONS[i];
+            let u = answers[i];
+            let icon = (u === q.correct) ? "✅" : "❌";
+            let userTxt = (u!==null) ? q.options[u] : "⏰ Tidak dijawab";
+            corrHtml += `<div class="correction-item"><div class="correction-question">${icon} Soal ${i+1}: ${escapeHtml(q.text)}</div><div>Jawaban Anda: <span class="user-answer">${escapeHtml(userTxt)}</span></div><div>Jawaban Benar: <span class="correct-answer">${escapeHtml(q.options[q.correct])}</span></div></div>`;
+        }
+        document.getElementById('correctionList').innerHTML = corrHtml;
+        addScore(currentUser.username, persen, totalSoal, benar);
+        renderLeaderboard("postLeaderboard");
+        await saveUserResult({ skorPersen: persen, total: totalSoal, correctionHtml: corrHtml });
+        document.getElementById('quizMain').classList.add('hidden');
+        document.getElementById('resultArea').classList.remove('hidden');
+    }
+    function showSavedResult() {
+        if(!userResult) return false;
+        document.getElementById('finalScore').innerHTML = `${userResult.skorPersen}/100`;
+        document.getElementById('resultMessage').innerHTML = "📋 Hasil sebelumnya. (Buat akun baru untuk mengikuti quiz lagi)";
+        document.getElementById('correctionList').innerHTML = userResult.correctionHtml || "";
+        renderLeaderboard("postLeaderboard");
+        document.getElementById('quizMain').classList.add('hidden');
+        document.getElementById('resultArea').classList.remove('hidden');
+        return true;
+    }
+
+    // ================== Editor Soal ==================
+    function renderEditor() {
+        const editorDiv = document.getElementById('questionsEditor');
+        editorDiv.innerHTML = '';
+        QUESTIONS.forEach((q, idx) => {
+            const div = document.createElement('div'); div.className='soal-item';
+            div.innerHTML = `<strong>Soal ${idx+1}</strong>
+                <input type="text" class="edit-question" data-idx="${idx}" value="${escapeHtml(q.text)}">
+                <div class="options-edit">${q.options.map((opt, oi) => `<input type="text" class="edit-opt" data-q="${idx}" data-o="${oi}" value="${escapeHtml(opt)}">`).join('')}</div>
+                <div class="correct-radio"><span>Jawaban benar:</span>${q.options.map((_, oi) => `<label><input type="radio" name="correct_${idx}" value="${oi}" ${q.correct===oi?'checked':''}> ${String.fromCharCode(65+oi)}</label>`).join('')}</div>
+                <button class="btn-del" data-del="${idx}">Hapus Soal</button>`;
+            editorDiv.appendChild(div);
+        });
+        document.querySelectorAll('.correct-radio input').forEach(r => r.addEventListener('change', (e) => {
+            let qi = parseInt(e.target.name.split('_')[1]);
+            if(!isNaN(qi) && QUESTIONS[qi]) QUESTIONS[qi].correct = parseInt(e.target.value);
+        }));
+        document.querySelectorAll('.edit-question').forEach(inp => inp.addEventListener('change', (e) => {
+            let idx = parseInt(inp.dataset.idx); if(!isNaN(idx) && QUESTIONS[idx]) QUESTIONS[idx].text = inp.value;
+        }));
+        document.querySelectorAll('.edit-opt').forEach(inp => inp.addEventListener('change', (e) => {
+            let q = parseInt(inp.dataset.q), o = parseInt(inp.dataset.o);
+            if(!isNaN(q) && QUESTIONS[q] && QUESTIONS[q].options[o] !== undefined) QUESTIONS[q].options[o] = inp.value;
+        }));
+        document.querySelectorAll('.btn-del').forEach(btn => btn.addEventListener('click', (e) => {
+            let del = parseInt(btn.dataset.del);
+            if(QUESTIONS.length > 1) { QUESTIONS.splice(del,1); renderEditor(); }
+            else alert("Minimal 1 soal!");
+        }));
+        document.getElementById('timerDurationInput').value = timerDurationSec;
+    }
+    async function saveAndReload() {
+        let newDur = parseInt(document.getElementById('timerDurationInput').value);
+        if(!isNaN(newDur) && newDur>=2) timerDurationSec = newDur;
+        for(let i=0;i<QUESTIONS.length;i++) {
+            if(QUESTIONS[i].correct === undefined) QUESTIONS[i].correct = 0;
+            QUESTIONS[i].options = QUESTIONS[i].options.map(o => o.trim() === "" ? "(kosong)" : o);
+        }
+        await saveGlobalData();
+        totalSoal = QUESTIONS.length;
+        document.getElementById('totalQ').innerText = totalSoal;
+        answers = new Array(totalSoal).fill(null);
+        current = 0;
+        quizFinishedFlag = false;
+        render();
+        initTimer();
+        document.getElementById('quizMain').classList.remove('hidden');
+        document.getElementById('resultArea').classList.add('hidden');
+        alert("Soal dan timer disimpan!");
+        document.getElementById('editPanel').classList.add('admin-only');
+        panelOpen = false;
+    }
+
+    // ================== Logout ==================
+    function logout() {
+        currentUser = null;
+        userResult = null;
+        stopTimer();
+        document.getElementById('quizContent').style.display = 'none';
+        document.getElementById('authScreen').style.display = 'block';
+        renderLeaderboard("previewLeaderboard");
+        document.getElementById('authUsername').value = '';
+        document.getElementById('authPassword').value = '';
+        document.getElementById('authError').innerText = '';
+        isLoginMode = true;
+        document.getElementById('authModeText').innerText = '🔐 Login ke Akun';
+        document.getElementById('authSubmitBtn').innerText = 'Login';
+        document.getElementById('authToggleBtn').innerText = 'Buat Akun Baru';
+    }
+
+    // ================== Auth UI ==================
+    let isLoginMode = true;
+    function toggleMode() {
+        isLoginMode = !isLoginMode;
+        document.getElementById('authModeText').innerText = isLoginMode ? "🔐 Login ke Akun" : "📝 Daftar Akun Baru";
+        document.getElementById('authSubmitBtn').innerText = isLoginMode ? "Login" : "Daftar";
+        document.getElementById('authToggleBtn').innerText = isLoginMode ? "Buat Akun Baru" : "Kembali ke Login";
+        document.getElementById('authError').innerText = '';
+    }
+    async function handleAuth() {
+        const username = document.getElementById('authUsername').value.trim();
+        const password = document.getElementById('authPassword').value.trim();
+        let err;
+        if(isLoginMode) err = await login(username, password);
+        else err = await register(username, password);
+        if(err) { document.getElementById('authError').innerText = err; return; }
+        if(!isLoginMode) await login(username, password);  // setelah register langsung login
+        document.getElementById('authScreen').style.display = 'none';
+        document.getElementById('quizContent').style.display = 'block';
+        document.getElementById('playerNameDisplay').innerText = `👤 ${currentUser.username}`;
+        totalSoal = QUESTIONS.length;
+        document.getElementById('totalQ').innerText = totalSoal;
+        answers = new Array(totalSoal).fill(null);
+        current = 0;
+        quizFinishedFlag = false;
+        render();
+        initTimer();
+        if(userResult) showSavedResult();
+        else {
+            document.getElementById('quizMain').classList.remove('hidden');
+            document.getElementById('resultArea').classList.add('hidden');
+        }
+        renderLeaderboard("postLeaderboard");
+        showAdminUI();
+    }
+
+    // ================== Initialization ==================
+    window.addEventListener('DOMContentLoaded', async () => {
+        checkAdmin();
+        await loadGlobalData();
+        renderLeaderboard("previewLeaderboard");
+        // Event binding
+        document.getElementById('authSubmitBtn').onclick = handleAuth;
+        document.getElementById('authToggleBtn').onclick = toggleMode;
+        document.getElementById('logoutBtn').onclick = logout;
+        document.getElementById('prevBtn').onclick = prev;
+        document.getElementById('nextBtn').onclick = next;
+        document.getElementById('editQuizBtn').onclick = toggleEditPanel;
+        document.getElementById('addQuestionBtn').onclick = () => { if(isAdmin) { QUESTIONS.push({ text: "Pertanyaan baru", options: ["A","B","C","D"], correct: 0 }); renderEditor(); } else alert("Hanya admin!"); };
+        document.getElementById('saveQuizBtn').onclick = () => { if(isAdmin) saveAndReload(); else alert("Hanya admin!"); };
+        document.getElementById('exitAdminBtn').onclick = exitAdmin;
+        document.getElementById('resetLeaderboardBtn').onclick = resetLeaderboard;
+        showAdminUI();
+        document.getElementById('editPanel').classList.add('admin-only');
+        document.getElementById('authScreen').style.display = 'block';
+        document.getElementById('quizContent').style.display = 'none';
+    });
+</script>
+</body>
+</html>

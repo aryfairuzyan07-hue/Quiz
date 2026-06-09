@@ -1,0 +1,15 @@
+{
+  "name": "quiz-railway",
+  "version": "1.0.0",
+  "description": "Quiz app with MySQL on Railway",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "mysql2": "^3.6.0",
+    "cors": "^2.8.5",
+    "bcrypt": "^5.1.0"
+  }
+}
