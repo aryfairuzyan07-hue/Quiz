@@ -126,14 +126,41 @@ app.get('/api/quiz-data', async (req, res) => {
     });
 });
 
+// PERBAIKAN: simpan skor hanya jika lebih tinggi dari yang sudah ada
 app.post('/api/save-result', async (req, res) => {
     const { username, scorePercent, totalCorrect, totalQuestions, correctionHtml } = req.body;
     const tanggal = new Date().toLocaleString();
-    await db.execute(`INSERT INTO leaderboard (username, score_percent, total_correct, total_questions, tanggal) VALUES (?,?,?,?,?)`,
-        [username, scorePercent, totalCorrect, totalQuestions, tanggal]);
+
+    // Cek apakah sudah ada entri untuk username ini
+    const [existing] = await db.execute("SELECT score_percent FROM leaderboard WHERE username = ?", [username]);
+
+    if (existing.length > 0) {
+        // Jika skor baru lebih tinggi, update
+        if (scorePercent > existing[0].score_percent) {
+            await db.execute(
+                `UPDATE leaderboard 
+                 SET score_percent = ?, total_correct = ?, total_questions = ?, tanggal = ? 
+                 WHERE username = ?`,
+                [scorePercent, totalCorrect, totalQuestions, tanggal, username]
+            );
+        }
+        // Jika skor baru lebih rendah atau sama, tidak ada perubahan (pertahankan skor tertinggi)
+    } else {
+        // Insert baru
+        await db.execute(
+            `INSERT INTO leaderboard (username, score_percent, total_correct, total_questions, tanggal) 
+             VALUES (?,?,?,?,?)`,
+            [username, scorePercent, totalCorrect, totalQuestions, tanggal]
+        );
+    }
+
+    // Tetap simpan hasil user (untuk dilihat kembali)
     await db.execute(`REPLACE INTO user_results (username, result_json) VALUES (?,?)`,
         [username, JSON.stringify({ scorePercent, totalQuestions, correctionHtml })]);
+    
+    // Tandai user sudah menyelesaikan quiz
     await db.execute(`UPDATE users SET has_completed = 1 WHERE username = ?`, [username]);
+
     res.json({ success: true });
 });
 
@@ -143,8 +170,19 @@ app.get('/api/user-result/:username', async (req, res) => {
     else res.json(null);
 });
 
+// PERBAIKAN: leaderboard hanya menampilkan satu skor tertinggi per username
 app.get('/api/leaderboard', async (req, res) => {
-    const [rows] = await db.execute("SELECT username, score_percent, total_correct, total_questions, tanggal FROM leaderboard ORDER BY score_percent DESC LIMIT 30");
+    const [rows] = await db.execute(`
+        SELECT username, 
+               MAX(score_percent) as score_percent, 
+               MAX(total_correct) as total_correct, 
+               MAX(total_questions) as total_questions, 
+               MAX(tanggal) as tanggal
+        FROM leaderboard 
+        GROUP BY username 
+        ORDER BY score_percent DESC 
+        LIMIT 30
+    `);
     res.json(rows);
 });
 
