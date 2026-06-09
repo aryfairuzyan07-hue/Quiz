@@ -1,8 +1,6 @@
 {
-  "name": "quiz-railway",
+  "name": "quiz-final",
   "version": "1.0.0",
-  "description": "Quiz app with MySQL on Railway",
-  "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
